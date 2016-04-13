@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = mincntr
+omit = mincntr/openstack/*
+
+[report]
+ignore_errors = True
