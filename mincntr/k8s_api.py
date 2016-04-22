@@ -17,12 +17,12 @@ from k8sclient.client import api_client
 from k8sclient.client.apis import apiv_api
 from k8sclient.tests import base
 
-import api
+import api as mincntr_api
 
 LOG = logging.getLogger(__name__)
 
 
-class KubernetesAPI(api.APIBase):
+class KubernetesAPI(mincntr_api.APIBase):
     def __init__(self):
         pass
 
@@ -36,37 +36,44 @@ class KubernetesAPI(api.APIBase):
             self._api = apiv_api.ApivApi(self._client)
         yield self._api
 
-    def container_create(self, container):
+    def list(self):
+        with self.k8s_for_container() as api:
+            return [mincntr_api.Container(item.metadata.uid,
+                                          item.metadata.name)
+                    for item in api.list_pod().items]
+
+    def create(self, container):
         pass
 
-    def container_delete(self, container_uuid):
+    def start(self, container_uuid):
         pass
 
-    def container_show(self, container_uuid):
+    def stop(self, container_uuid):
         pass
 
-    def container_reboot(self, container_uuid):
+    def restart(self, container_uuid):
         pass
 
-    def container_stop(self, container_uuid):
+    def pause(self, container_uuid):
         pass
 
-    def container_start(self, container_uuid):
+    def unpause(self, container_uuid):
         pass
 
-    def container_pause(self, container_uuid):
+    def delete(self, container_uuid):
         pass
 
-    def container_unpause(self, container_uuid):
+    def inspect(self, container_uuid):
         pass
 
-    def container_logs(self, container_uuid):
-        LOG.debug("container_logs %s", container_uuid)
+    def logs(self, container_uuid):
         with self.k8s_for_container() as api:
             response = api.read_namespaced_pod_log(
                 'default', container_uuid)
-            LOG.debug("container_logs %r", self._client.last_response.data)
             return {'output': self._client.last_response.data}
 
-    def container_exec(self, container_uuid, command):
-        pass
+    def execute(self, container_uuid, command):
+        with self.k8s_for_container() as api:
+            response = api.connect_get_namespaced_pod_exec(
+                'default', container_uuid, command=command)
+            return {'output': self._client.last_response.data}
