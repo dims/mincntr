@@ -24,7 +24,7 @@ class APIBase(object):
         pass
 
     @abc.abstractmethod
-    def create(self, container):
+    def create(self, name, image, **kwargs):
         pass
 
     @abc.abstractmethod

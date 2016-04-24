@@ -14,6 +14,7 @@ import contextlib
 import functools
 import logging
 import os
+import uuid
 
 from distutils.version import StrictVersion
 import six
@@ -135,7 +136,7 @@ class DockerAPI(api.APIBase):
     def docker_for_container(self):
         if self._client is None:
             self._client = DockerHTTPClient(
-                    url=os.getenv('DOCKER_HOST', 'unix://var/run/docker.sock'))
+                url=os.getenv('DOCKER_HOST', 'unix://var/run/docker.sock'))
         yield self._client
 
     @staticmethod
@@ -157,35 +158,37 @@ class DockerAPI(api.APIBase):
     # Container operations
 
     @wrap_container_exception
-    def container_create(self, container):
+    def list(self):
         with self.docker_for_container() as docker:
-            name = container.name
-            container_uuid = container.uuid
-            image = container.image
+            return docker.list_instances()
+
+    @wrap_container_exception
+    def create(self, name, image, **kwargs):
+        with self.docker_for_container() as docker:
+            container_uuid = kwargs.get(uuid)
             LOG.debug('Creating container with image %s name %s', image, name)
             try:
                 image_repo, image_tag = parse_docker_image(image)
                 docker.pull(image_repo, tag=image_tag)
-                docker.inspect_image(self._encode_utf8(container.image))
-                kwargs = {'name': name,
-                          'hostname': container_uuid,
-                          'command': container.command,
-                          'environment': container.environment}
+                docker.inspect_image(self._encode_utf8(image))
+                container_kwargs = {'name': name,
+                                    'hostname': container_uuid,
+                                    'command': kwargs.get('command'),
+                                    'environment': kwargs.get('environment')}
+                memory = kwargs.get('memory')
                 if is_docker_api_version_atleast(docker, '1.19'):
-                    if container.memory is not None:
-                        kwargs['host_config'] = {'mem_limit': container.memory}
+                    if memory is not None:
+                        container_kwargs['host_config'] = {'mem_limit': memory}
                 else:
-                    kwargs['mem_limit'] = container.memory
+                    container_kwargs['mem_limit'] = memory
 
-                docker.create_container(image, **kwargs)
-                container.status = 'STOPPED'
-                return container
+                docker.create_container(image, **container_kwargs)
+                return True
             except errors.APIError:
-                container.status = 'ERROR'
-                raise
+                return False
 
     @wrap_container_exception
-    def container_delete(self, container_uuid):
+    def delete(self, container_uuid):
         LOG.debug("container_delete %s", container_uuid)
         with self.docker_for_container() as docker:
             docker_id = self._find_container_by_name(docker,
@@ -195,7 +198,7 @@ class DockerAPI(api.APIBase):
             return docker.remove_container(docker_id)
 
     @wrap_container_exception
-    def container_show(self, container_uuid):
+    def inspect(self, container_uuid):
         LOG.debug("container_show %s", container_uuid)
         with self.docker_for_container() as docker:
             # container = objects.Container.get_by_uuid(
@@ -246,30 +249,30 @@ class DockerAPI(api.APIBase):
             # container.save()
             return result
 
-    def container_reboot(self, container_uuid):
+    def restart(self, container_uuid):
         return self._container_action(container_uuid,
                                       'RUNNING',
                                       'restart')
 
-    def container_stop(self, container_uuid):
+    def stop(self, container_uuid):
         return self._container_action(container_uuid,
                                       'STOPPED', 'stop')
 
-    def container_start(self, container_uuid):
+    def start(self, container_uuid):
         return self._container_action(container_uuid,
                                       'RUNNING', 'start')
 
-    def container_pause(self, container_uuid):
+    def pause(self, container_uuid):
         return self._container_action(container_uuid,
                                       'PAUSED', 'pause')
 
-    def container_unpause(self, container_uuid):
+    def unpause(self, container_uuid):
         return self._container_action(container_uuid,
                                       'RUNNING',
                                       'unpause')
 
     @wrap_container_exception
-    def container_logs(self, container_uuid):
+    def logs(self, container_uuid):
         LOG.debug("container_logs %s", container_uuid)
         with self.docker_for_container() as docker:
             docker_id = self._find_container_by_name(docker,
@@ -277,7 +280,7 @@ class DockerAPI(api.APIBase):
             return {'output': docker.logs(docker_id)}
 
     @wrap_container_exception
-    def container_exec(self, container_uuid, command):
+    def execute(self, container_uuid, command):
         LOG.debug("container_exec %s command %s",
                   container_uuid, command)
         with self.docker_for_container() as docker:

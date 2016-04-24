@@ -19,10 +19,17 @@ test_mincntr
 Tests for `mincntr` module.
 """
 
+from mincntr import k8s_api
+from mincntr import docker_api
 from mincntr.tests import base
 
 
 class TestMincntr(base.TestCase):
 
-    def test_something(self):
-        pass
+    def test_docker_api(self):
+        api = docker_api.DockerAPI()
+        print(api.list())
+
+    def test_k8s_api(self):
+        api = k8s_api.KubernetesAPI()
+        print(api.list())
