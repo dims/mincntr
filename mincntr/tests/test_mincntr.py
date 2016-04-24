@@ -18,6 +18,7 @@ test_mincntr
 
 Tests for `mincntr` module.
 """
+import uuid
 
 from mincntr import k8s_api
 from mincntr import docker_api
@@ -29,6 +30,7 @@ class TestMincntr(base.TestCase):
     def test_docker_api(self):
         api = docker_api.DockerAPI()
         print(api.list())
+        print(api.create('ping-test' + str(uuid.uuid4()), 'ubuntu:14.04', command='ping 8.8.8.8'))
 
     def test_k8s_api(self):
         api = k8s_api.KubernetesAPI()
