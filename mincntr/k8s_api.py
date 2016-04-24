@@ -42,8 +42,17 @@ class KubernetesAPI(mincntr_api.APIBase):
                                           item.metadata.name)
                     for item in api.list_pod().items]
 
-    def create(self, container):
-        pass
+    def create(self, name, image, **kwargs):
+        pod_manifest = {'apiVersion': 'v1',
+                        'kind': 'Pod',
+                        'metadata': {'color': 'blue',
+                                     'name': name},
+                        'spec': {'containers': [{'image': image,
+                                                 'name': name}]}}
+
+        with self.k8s_for_container() as api:
+            return api.create_namespaced_pod(body=pod_manifest,
+                                             namespace='default')
 
     def start(self, container_uuid):
         pass
